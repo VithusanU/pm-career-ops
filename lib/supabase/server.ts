@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { SUPABASE_URL, SUPABASE_KEY } from './config'
 
 function tryDecode(value: string): string {
   try { return decodeURIComponent(value) } catch { return value }
@@ -8,8 +9,8 @@ function tryDecode(value: string): string {
 export function createClient() {
   const cookieStore = cookies()
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    SUPABASE_URL,
+    SUPABASE_KEY,
     {
       cookies: {
         getAll() {

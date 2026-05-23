@@ -1,5 +1,6 @@
 'use client'
 import { createBrowserClient } from '@supabase/ssr'
+import { SUPABASE_URL, SUPABASE_KEY } from './config'
 
 function tryDecode(value: string): string {
   try { return decodeURIComponent(value) } catch { return value }
@@ -7,8 +8,8 @@ function tryDecode(value: string): string {
 
 export function createClient() {
   return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    SUPABASE_URL,
+    SUPABASE_KEY,
     {
       cookies: {
         getAll() {
