@@ -1,0 +1,41 @@
+[
+  {
+    "id": "1",
+    "title": "Breaking Down Notion's Onboarding Flow",
+    "type": "Company Analysis",
+    "status": "Draft",
+    "targetCompany": "Notion",
+    "platform": ["Blog", "LinkedIn"],
+    "dateDrafted": "2026-05-22",
+    "datePublished": null,
+    "linkedApplication": "1",
+    "outline": "1. First 5 minutes — what they show you\n2. Activation moment — the 'aha'\n3. What's missing — 3 improvements I'd ship\n4. What this tells us about their PM priorities",
+    "notes": "Publish before interview if one is scheduled"
+  },
+  {
+    "id": "2",
+    "title": "How I'd Improve Linear's Onboarding for Solo Devs",
+    "type": "Feature Pitch",
+    "status": "Idea",
+    "targetCompany": "Linear",
+    "platform": ["Blog", "LinkedIn"],
+    "dateDrafted": null,
+    "datePublished": null,
+    "linkedApplication": "2",
+    "outline": "",
+    "notes": "High-value piece — send to recruiter after publishing"
+  },
+  {
+    "id": "3",
+    "title": "5 PM Lessons From Building Drivn",
+    "type": "Personal Brand",
+    "status": "Published",
+    "targetCompany": null,
+    "platform": ["Blog", "LinkedIn"],
+    "dateDrafted": "2026-05-10",
+    "datePublished": "2026-05-14",
+    "linkedApplication": null,
+    "outline": "",
+    "notes": "Strong engagement — repurpose as a thread"
+  }
+]
