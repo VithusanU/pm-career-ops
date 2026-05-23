@@ -1,10 +1,12 @@
 "use client";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function LoginPage() {
+function LoginContent() {
   const supabase = createClient();
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error");
 
   const signInWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
@@ -27,6 +29,12 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm break-all">
+            Auth error: {decodeURIComponent(error)}
+          </div>
+        )}
+
         <button
           onClick={signInWithGoogle}
           className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl px-6 py-3 transition-all shadow-sm"
@@ -45,5 +53,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   );
 }
