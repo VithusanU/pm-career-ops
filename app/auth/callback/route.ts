@@ -38,9 +38,13 @@ export async function GET(request: Request) {
       }
     )
 
+    // Diagnostic: log first 3 char codes of each env var to detect BOM/corruption
+    const urlCodes = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').split('').slice(0,3).map(c=>c.charCodeAt(0)).join(',')
+    const keyCodes = (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '').split('').slice(0,3).map(c=>c.charCodeAt(0)).join(',')
+
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) return NextResponse.redirect(`${baseUrl}/`)
-    return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent(error.message)}`)
+    return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent(error.message + ' | url:' + urlCodes + ' key:' + keyCodes)}`)
   }
 
   return NextResponse.redirect(`${baseUrl}/login?error=no_code`)
