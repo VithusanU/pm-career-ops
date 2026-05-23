@@ -12,6 +12,7 @@ node_modules/
 
 # misc
 .DS_Store
+.env.local
 *.pem
 .env
 .env*.local
@@ -27,3 +28,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
