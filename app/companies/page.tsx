@@ -2,7 +2,7 @@ import Link from "next/link";
 import applications from "@/data/applications.json";
 
 export default function Companies() {
-  const companies = [...new Map(applications.map((a) => [a.company, a])).values()];
+  const companies = Array.from(new Map(applications.map((a) => [a.company, a])).values());
 
   return (
     <div className="space-y-6">
