@@ -70,6 +70,11 @@ export default function ApplicationModal({ isOpen, onClose, onSaved, initial, pr
       return;
     }
     setSaving(true);
+
+    // Get the current user — required for RLS policy (user_id = auth.uid())
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError("You must be signed in to save applications."); setSaving(false); return; }
+
     const payload = {
       company: form.company.trim(), role: form.role.trim(), url: form.url,
       source: form.source, stage: form.stage, priority: form.priority,
@@ -82,7 +87,8 @@ export default function ApplicationModal({ isOpen, onClose, onSaved, initial, pr
       const { error } = await supabase.from("applications").update(payload).eq("id", initial!.id);
       if (error) { setError(error.message); setSaving(false); return; }
     } else {
-      const { error } = await supabase.from("applications").insert({ ...payload, date_added: new Date().toISOString().split("T")[0] });
+      const { error } = await supabase.from("applications")
+        .insert({ ...payload, user_id: user.id, date_added: new Date().toISOString().split("T")[0] });
       if (error) { setError(error.message); setSaving(false); return; }
     }
     setSaving(false);
