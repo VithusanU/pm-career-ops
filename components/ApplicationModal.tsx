@@ -10,7 +10,7 @@ const SOURCES = ["LinkedIn", "Indeed", "Glassdoor", "Direct", "Referral", "Angel
 
 interface Prefill {
   company?: string; role?: string; url?: string; source?: string;
-  keywords?: string[]; notes?: string;
+  keywords?: string[]; notes?: string; error?: string;
 }
 
 interface Props {
