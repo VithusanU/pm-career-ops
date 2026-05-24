@@ -58,6 +58,72 @@ const RESUME_BULLETS = [
   },
 ];
 
+const JOB_SOURCES = [
+  {
+    category: "🎯 Highest Signal (PM Recruiters Post Here First)",
+    note: "These are the boards hiring managers and PM-focused recruiters check daily.",
+    links: [
+      { label: "Lenny's Newsletter Job Board", url: "https://www.lennysnewsletter.com/c/job-board", tag: "Top Pick", desc: "Curated PM roles at top-tier product companies. High signal, low noise." },
+      { label: "LinkedIn Jobs — Product Manager", url: "https://www.linkedin.com/jobs/search/?keywords=product%20manager", tag: "Highest Volume", desc: "Most PM roles are posted here. Set up job alerts for 'Product Manager' + city/remote." },
+      { label: "Y Combinator Work at a Startup", url: "https://www.workatastartup.com/jobs?role=pm", tag: "Startup", desc: "Direct access to YC-backed companies. Founders often review applications personally." },
+      { label: "Wellfound (AngelList)", url: "https://wellfound.com/role/r/product-manager", tag: "Startup", desc: "Startups and scale-ups. Salary transparency, equity details shown upfront." },
+    ],
+  },
+  {
+    category: "📋 High Volume Job Boards",
+    note: "Cast a wide net — set up daily email alerts so you catch roles early.",
+    links: [
+      { label: "Indeed — Product Manager", url: "https://www.indeed.com/q-product-manager-jobs.html", tag: "", desc: "Aggregates roles from company sites. Good for SMBs that don't post on LinkedIn." },
+      { label: "Glassdoor — PM Jobs", url: "https://www.glassdoor.com/Job/product-manager-jobs-SRCH_KO0,15.htm", tag: "", desc: "Job listings + company reviews + salary data. Research companies here before applying." },
+      { label: "Builtin — Product Jobs", url: "https://builtin.com/jobs/product", tag: "Tech Focus", desc: "Tech company roles. Strong in major US metros (NYC, SF, Chicago, Austin, Boston)." },
+      { label: "Dice — PM Roles", url: "https://www.dice.com/jobs?q=product+manager&countryCode=US", tag: "", desc: "Tech-focused. Good for finding PM roles at mid-size tech companies." },
+    ],
+  },
+  {
+    category: "🚀 PM-Community & Niche Boards",
+    note: "These boards attract companies that take product seriously. Less competition.",
+    links: [
+      { label: "Product Hunt Jobs", url: "https://www.producthunt.com/jobs?category=product", tag: "", desc: "Consumer-facing and early-stage product companies." },
+      { label: "Mind the Product Jobs", url: "https://www.mindtheproduct.com/product-management-jobs/", tag: "", desc: "Global PM roles from companies with strong product cultures." },
+      { label: "Product School Job Board", url: "https://productschool.com/jobs/", tag: "", desc: "PM roles from companies that hire Product School grads. Mid-market heavy." },
+      { label: "Pallet — PM Collections", url: "https://pallet.com/browse/jobs?roles=product", tag: "", desc: "Curated job collections run by PM influencers and communities." },
+    ],
+  },
+  {
+    category: "🎓 Entry-Level & APM Programs",
+    note: "If you're breaking in, APM programs are the front door. Apply to all of them.",
+    links: [
+      { label: "APM List — All APM Programs", url: "https://apmlist.com/", tag: "Must Visit", desc: "The definitive list of Associate PM programs at top tech companies. Bookmark this." },
+      { label: "Handshake — PM Roles", url: "https://joinhandshake.com/career-paths/product-manager/", tag: "New Grads", desc: "University recruiting platform. Best if you're a recent grad or still in school." },
+      { label: "Google APM Program", url: "https://buildyourfuture.withgoogle.com/programs/apm", tag: "Tier 1", desc: "Google's Associate PM program. Competitive, opens annually." },
+      { label: "Meta RPM Program", url: "https://www.metacareers.com/careerprograms/pathways/rpm", tag: "Tier 1", desc: "Meta's Rotational PM program. Strong alumni network." },
+    ],
+  },
+  {
+    category: "🏢 Apply Directly (Skip the ATS Queue)",
+    note: "Hiring managers often see direct applications before LinkedIn. Go straight to source.",
+    links: [
+      { label: "Notion Careers", url: "https://www.notion.so/careers", tag: "", desc: "Product-led growth company with strong PM culture." },
+      { label: "Linear Careers", url: "https://linear.app/careers", tag: "", desc: "High-craft B2B tool. Small PM team, very selective." },
+      { label: "Figma Careers", url: "https://www.figma.com/careers/", tag: "", desc: "Design tool with deep PM/design collaboration culture." },
+      { label: "Stripe Careers", url: "https://stripe.com/jobs/search?teams[]=Product+%26+Design", tag: "", desc: "Writing-heavy PM culture. Strong on product strategy." },
+      { label: "Shopify Careers", url: "https://www.shopify.com/careers", tag: "", desc: "Large PM org, good for commerce/marketplace domain." },
+      { label: "Atlassian Careers", url: "https://www.atlassian.com/company/careers/all-jobs", tag: "", desc: "B2B / developer tools. Strong mission-driven PM culture." },
+    ],
+  },
+  {
+    category: "🔍 How Hiring Managers Actually Find You",
+    note: "Active outreach beats passive applications 3:1. Here's where to show up.",
+    links: [
+      { label: "LinkedIn (Be Findable)", url: "https://www.linkedin.com/in/", tag: "Top Channel", desc: "70%+ of PM roles are filled via LinkedIn. Open to Work + keyword-optimized headline = inbound recruiter messages." },
+      { label: "Product Management Happy Hour (Slack)", url: "https://productmanagementhappyhour.com/", tag: "Community", desc: "Active Slack with a #jobs channel. Recruiters post roles directly." },
+      { label: "Lenny's Community", url: "https://www.lennysnewsletter.com/about", tag: "Community", desc: "Paid community, but the job board is free. Hiring managers post here personally." },
+      { label: "r/ProductManagement", url: "https://www.reddit.com/r/ProductManagement/", tag: "Community", desc: "Job posts in the weekly thread. Good for low-competition roles at smaller companies." },
+      { label: "Referral Outreach via LinkedIn", url: "https://www.linkedin.com/search/results/people/?keywords=product%20manager%20recruiter", tag: "Highest ROI", desc: "Referrals fill ~40% of PM roles. Message PMs at target companies for coffee chats → ask about referrals." },
+    ],
+  },
+];
+
 export default function Resources() {
   const [activeCategory, setActiveCategory] = useState(0);
   const [activeBullet, setActiveBullet] = useState(0);
@@ -66,7 +132,48 @@ export default function Resources() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Resources</h1>
-        <p className="text-slate-500 text-sm mt-1">Interview prep, resume system, and PM frameworks.</p>
+        <p className="text-slate-500 text-sm mt-1">Interview prep, resume system, PM frameworks, and where to apply.</p>
+      </div>
+
+      {/* WHERE TO APPLY — moved to top since it's the most actionable */}
+      <div className="card">
+        <h2 className="font-semibold text-slate-900 mb-1">Where PM Hiring Managers Find Candidates</h2>
+        <p className="text-sm text-slate-500 mb-4">
+          Sourced from how real PM hiring managers and recruiters describe their process. Apply to these first.
+        </p>
+        <div className="space-y-6">
+          {JOB_SOURCES.map((section) => (
+            <div key={section.category}>
+              <div className="flex items-baseline gap-2 mb-1">
+                <h3 className="text-sm font-semibold text-slate-800">{section.category}</h3>
+              </div>
+              <p className="text-xs text-slate-500 mb-2">{section.note}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {section.links.map(({ label, url, tag, desc }) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group flex flex-col gap-1 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg p-3 transition-all"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium text-slate-800 group-hover:text-blue-700 transition-colors">
+                        {label} ↗
+                      </span>
+                      {tag && (
+                        <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                          {tag}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500">{desc}</p>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Interview Prep */}

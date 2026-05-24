@@ -8,11 +8,17 @@ const STAGES: Stage[] = ["Researching", "Applied", "Phone Screen", "Interview", 
 const PRIORITIES: Priority[] = ["High", "Medium", "Low"];
 const SOURCES = ["LinkedIn", "Direct", "Referral", "AngelList", "YC Jobs", "Greenhouse", "Lever", "Other"];
 
+interface Prefill {
+  company?: string; role?: string; url?: string; source?: string;
+  keywords?: string[]; notes?: string;
+}
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSaved: () => void;
   initial?: Application | null;
+  prefill?: Prefill | null;
 }
 
 const empty = {
@@ -22,7 +28,7 @@ const empty = {
   notes: "", ats_keywords: "", contact_name: "", contact_linkedin: "", response: "None",
 };
 
-export default function ApplicationModal({ isOpen, onClose, onSaved, initial }: Props) {
+export default function ApplicationModal({ isOpen, onClose, onSaved, initial, prefill }: Props) {
   const supabase = createClient();
   const isEdit = !!initial?.id;
   const [form, setForm] = useState(empty);
@@ -40,11 +46,21 @@ export default function ApplicationModal({ isOpen, onClose, onSaved, initial }: 
         contact_name: initial.contact_name, contact_linkedin: initial.contact_linkedin,
         response: initial.response,
       });
+    } else if (prefill) {
+      setForm({
+        ...empty,
+        company: prefill.company ?? "",
+        role: prefill.role ?? "",
+        url: prefill.url ?? "",
+        source: prefill.source ?? "LinkedIn",
+        notes: prefill.notes ?? "",
+        ats_keywords: (prefill.keywords ?? []).join(", "),
+      });
     } else {
       setForm(empty);
     }
     setError("");
-  }, [initial, isOpen]);
+  }, [initial, prefill, isOpen]);
 
   const set = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
 

@@ -24,6 +24,11 @@ const priorityColors: Record<string, string> = {
   Low:    "bg-slate-50 text-slate-500 border border-slate-200",
 };
 
+interface ImportResult {
+  company: string; role: string; url: string; source: string;
+  keywords: string[]; notes: string; error?: string;
+}
+
 export default function Pipeline() {
   const supabase = createClient();
   const [apps, setApps] = useState<Application[]>([]);
@@ -32,6 +37,13 @@ export default function Pipeline() {
   const [sortBy, setSortBy] = useState<"score" | "date_added">("score");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Application | null>(null);
+  const [prefill, setPrefill] = useState<ImportResult | null>(null);
+
+  // Import from URL state
+  const [showImport, setShowImport] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,8 +54,8 @@ export default function Pipeline() {
 
   useEffect(() => { load(); }, [load]);
 
-  const openAdd = () => { setEditing(null); setModalOpen(true); };
-  const openEdit = (app: Application) => { setEditing(app); setModalOpen(true); };
+  const openAdd = () => { setEditing(null); setPrefill(null); setModalOpen(true); };
+  const openEdit = (app: Application) => { setEditing(app); setPrefill(null); setModalOpen(true); };
 
   const deleteApp = async (id: string) => {
     if (!confirm("Delete this application?")) return;
@@ -54,6 +66,34 @@ export default function Pipeline() {
   const changeStage = async (id: string, stage: string) => {
     await supabase.from("applications").update({ stage }).eq("id", id);
     setApps((prev) => prev.map((a) => (a.id === id ? { ...a, stage: stage as Stage } : a)));
+  };
+
+  const handleImport = async () => {
+    if (!importUrl.trim()) return;
+    setImporting(true);
+    setImportError("");
+    try {
+      const res = await fetch("/api/import-job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: importUrl.trim() }),
+      });
+      const data: ImportResult = await res.json();
+      if (data.error && !data.company && !data.role) {
+        setImportError(data.error);
+      } else {
+        // Open modal pre-filled (even if partial)
+        setEditing(null);
+        setPrefill(data);
+        setModalOpen(true);
+        setShowImport(false);
+        setImportUrl("");
+        if (data.error) setImportError(""); // soft error — modal opened with partial data
+      }
+    } catch {
+      setImportError("Network error — check your connection and try again.");
+    }
+    setImporting(false);
   };
 
   const visible = apps
@@ -75,12 +115,51 @@ export default function Pipeline() {
             <option value="score">Sort: Score</option>
             <option value="date_added">Sort: Date Added</option>
           </select>
+          <button
+            onClick={() => { setShowImport((v) => !v); setImportError(""); }}
+            className={clsx(
+              "text-sm font-semibold px-4 py-2 rounded-lg border transition-colors",
+              showImport
+                ? "bg-slate-100 text-slate-700 border-slate-300"
+                : "bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+            )}>
+            🔗 Import from URL
+          </button>
           <button onClick={openAdd}
             className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
             + Add Application
           </button>
         </div>
       </div>
+
+      {/* URL Import Row */}
+      {showImport && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-blue-800 mb-1">Paste a job posting URL</p>
+            <p className="text-xs text-blue-600">Works with LinkedIn, Greenhouse, Lever, Workday, Indeed, and most company career pages. Fields will be pre-filled — you can edit before saving.</p>
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={importUrl}
+              onChange={(e) => setImportUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleImport()}
+              placeholder="https://www.linkedin.com/jobs/view/... or any job URL"
+              className="flex-1 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
+            <button
+              onClick={handleImport}
+              disabled={importing || !importUrl.trim()}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors whitespace-nowrap">
+              {importing ? "Importing…" : "Import →"}
+            </button>
+          </div>
+          {importError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{importError}</p>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {(["All", ...STAGES] as const).map((s) => {
@@ -123,6 +202,9 @@ export default function Pipeline() {
                   <td className="px-4 py-3">
                     <p className="font-semibold text-slate-900">{app.company}</p>
                     <p className="text-slate-400 text-xs">{app.role}</p>
+                    {app.url && (
+                      <a href={app.url} target="_blank" rel="noreferrer" className="text-blue-400 text-xs hover:underline">Job posting ↗</a>
+                    )}
                     {app.date_applied && <p className="text-slate-300 text-xs">Applied {app.date_applied}</p>}
                   </td>
                   <td className="px-4 py-3">
@@ -164,9 +246,10 @@ export default function Pipeline() {
 
       <ApplicationModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setPrefill(null); }}
         onSaved={load}
         initial={editing}
+        prefill={prefill}
       />
     </div>
   );
