@@ -6,7 +6,7 @@ import type { Application, Stage, Priority } from "@/lib/types";
 
 const STAGES: Stage[] = ["Researching", "Applied", "Phone Screen", "Interview", "Final Round", "Offer", "Rejected", "Withdrawn"];
 const PRIORITIES: Priority[] = ["High", "Medium", "Low"];
-const SOURCES = ["LinkedIn", "Direct", "Referral", "AngelList", "YC Jobs", "Greenhouse", "Lever", "Other"];
+const SOURCES = ["LinkedIn", "Indeed", "Glassdoor", "Direct", "Referral", "AngelList", "YC Jobs", "Greenhouse", "Lever", "Workday", "Builtin", "Wellfound", "Other"];
 
 interface Prefill {
   company?: string; role?: string; url?: string; source?: string;
@@ -96,7 +96,12 @@ export default function ApplicationModal({ isOpen, onClose, onSaved, initial, pr
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={isEdit ? "Edit Application" : "Add Application"}>
       <div className="p-6 space-y-5">
-        {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+        {prefill?.error && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          ⚠️ {prefill.error}
+        </p>
+      )}
+      {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
         <div className="grid grid-cols-2 gap-4">
           <div>

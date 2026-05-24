@@ -81,6 +81,21 @@ export async function POST(request: Request) {
 
     const html = await res.text()
 
+    // ── 0. Bot / security check detection ────────────────────────────────────
+    const pageTitle = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.toLowerCase() ?? ''
+    const botSignals = ['security check', 'captcha', 'access denied', 'robot', 'blocked', 'just a moment', 'verify you are human', 'attention required', 'ddos-guard', 'please enable js']
+    if (botSignals.some(s => pageTitle.includes(s))) {
+      return NextResponse.json({
+        error: `This site blocked the import (bot protection). Copy the job title and company manually — the URL and source have been pre-filled for you.`,
+        company: '',
+        role: '',
+        url,
+        source: detectSource(url),
+        keywords: [],
+        notes: '',
+      })
+    }
+
     let role = '', company = '', descriptionText = ''
 
     // ── 1. JSON-LD JobPosting schema (most reliable) ──────────────────────────
@@ -115,8 +130,8 @@ export async function POST(request: Request) {
 
     // ── 3. Page <title> fallback ──────────────────────────────────────────────
     if (!role) {
-      const pageTitle = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] ?? ''
-      const parsed = parseJobTitle(pageTitle)
+      const rawTitle = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] ?? ''
+      const parsed = parseJobTitle(rawTitle)
       role = parsed.role
       if (!company) company = parsed.company
     }

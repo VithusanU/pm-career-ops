@@ -79,17 +79,13 @@ export default function Pipeline() {
         body: JSON.stringify({ url: importUrl.trim() }),
       });
       const data: ImportResult = await res.json();
-      if (data.error && !data.company && !data.role) {
-        setImportError(data.error);
-      } else {
-        // Open modal pre-filled (even if partial)
-        setEditing(null);
-        setPrefill(data);
-        setModalOpen(true);
-        setShowImport(false);
-        setImportUrl("");
-        if (data.error) setImportError(""); // soft error — modal opened with partial data
-      }
+      // Always open the modal — even on bot-blocked pages the URL + source are pre-filled
+      setEditing(null);
+      setPrefill(data);
+      setModalOpen(true);
+      setShowImport(false);
+      setImportUrl("");
+      setImportError("");
     } catch {
       setImportError("Network error — check your connection and try again.");
     }
