@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import clsx from "clsx";
 import ApplicationModal from "@/components/ApplicationModal";
@@ -29,8 +30,9 @@ interface ImportResult {
   keywords: string[]; notes: string; error?: string;
 }
 
-export default function Pipeline() {
+function PipelineInner() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Stage | "All">("All");
@@ -44,6 +46,8 @@ export default function Pipeline() {
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
+  const [showBookmarklet, setShowBookmarklet] = useState(false);
+  const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,6 +57,29 @@ export default function Pipeline() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Handle bookmarklet query params (?_import=1&_title=...&_company=...&_url=...)
+  useEffect(() => {
+    if (searchParams.get("_import") === "1") {
+      const title = searchParams.get("_title") ?? "";
+      const company = searchParams.get("_company") ?? "";
+      const importedUrl = searchParams.get("_url") ?? "";
+      const source = searchParams.get("_source") ?? "";
+      if (title || company || importedUrl) {
+        setEditing(null);
+        setPrefill({ company, role: title, url: importedUrl, source, keywords: [], notes: "" });
+        setModalOpen(true);
+        // Clean up URL params without a reload
+        const clean = new URL(window.location.href);
+        clean.searchParams.delete("_import");
+        clean.searchParams.delete("_title");
+        clean.searchParams.delete("_company");
+        clean.searchParams.delete("_url");
+        clean.searchParams.delete("_source");
+        window.history.replaceState({}, "", clean.toString());
+      }
+    }
+  }, [searchParams]);
 
   const openAdd = () => { setEditing(null); setPrefill(null); setModalOpen(true); };
   const openEdit = (app: Application) => { setEditing(app); setPrefill(null); setModalOpen(true); };
@@ -90,6 +117,18 @@ export default function Pipeline() {
       setImportError("Network error — check your connection and try again.");
     }
     setImporting(false);
+  };
+
+  const BOOKMARKLET_CODE = `javascript:(function(){var t=document.querySelector('h1')?.innerText?.trim()||document.title||'';var c='';var sels=['[class*="company-name"]','[class*="companyName"]','[data-company]','[class*="employer"]','[class*="company"]'];for(var i=0;i<sels.length;i++){var el=document.querySelector(sels[i]);if(el&&el.innerText&&el.innerText.trim().length>1&&el.innerText.trim().length<80){c=el.innerText.trim();break;}}var src='Direct';var h=location.href;if(h.includes('linkedin.com'))src='LinkedIn';else if(h.includes('indeed.com'))src='Indeed';else if(h.includes('greenhouse.io'))src='Greenhouse';else if(h.includes('lever.co'))src='Lever';else if(h.includes('workday.com'))src='Workday';else if(h.includes('wellfound.com')||h.includes('angel.co'))src='AngelList';else if(h.includes('workatastartup.com'))src='YC Jobs';var p=new URLSearchParams({_import:'1',_title:t,_company:c,_url:h,_source:src});window.open('${typeof window !== "undefined" ? window.location.origin : ""}/pipeline?'+p.toString(),'_blank');})();`;
+
+  const copyBookmarklet = async () => {
+    try {
+      await navigator.clipboard.writeText(BOOKMARKLET_CODE);
+      setBookmarkletCopied(true);
+      setTimeout(() => setBookmarkletCopied(false), 2500);
+    } catch {
+      // Fallback — select a textarea
+    }
   };
 
   const visible = apps
@@ -130,30 +169,79 @@ export default function Pipeline() {
 
       {/* URL Import Row */}
       {showImport && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-4">
+          {/* URL paste section */}
           <div>
             <p className="text-sm font-semibold text-blue-800 mb-1">Paste a job posting URL</p>
-            <p className="text-xs text-blue-600">Works with LinkedIn, Greenhouse, Lever, Workday, Indeed, and most company career pages. Fields will be pre-filled — you can edit before saving.</p>
+            <p className="text-xs text-blue-600 mb-3">Works with Greenhouse, Lever, Workday, and most company career pages. For LinkedIn and Indeed (bot-protected), use the <button onClick={() => setShowBookmarklet(v => !v)} className="underline font-semibold hover:text-blue-800">bookmarklet</button> below for guaranteed results.</p>
+            <div className="flex gap-2">
+              <input
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleImport()}
+                placeholder="https://www.linkedin.com/jobs/view/... or any job URL"
+                className="flex-1 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+              <button
+                onClick={handleImport}
+                disabled={importing || !importUrl.trim()}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors whitespace-nowrap">
+                {importing ? "Importing…" : "Import →"}
+              </button>
+            </div>
+            {importError && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-2">{importError}</p>
+            )}
           </div>
-          <div className="flex gap-2">
-            <input
-              value={importUrl}
-              onChange={(e) => setImportUrl(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleImport()}
-              placeholder="https://www.linkedin.com/jobs/view/... or any job URL"
-              className="flex-1 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-            />
+
+          {/* Bookmarklet section */}
+          <div className="border-t border-blue-200 pt-3">
             <button
-              onClick={handleImport}
-              disabled={importing || !importUrl.trim()}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors whitespace-nowrap">
-              {importing ? "Importing…" : "Import →"}
+              onClick={() => setShowBookmarklet(v => !v)}
+              className="text-xs font-semibold text-blue-700 hover:text-blue-900 flex items-center gap-1.5">
+              {showBookmarklet ? "▾" : "▸"} 🔖 Bookmarklet — works on LinkedIn, Indeed, and any site
             </button>
+
+            {showBookmarklet && (
+              <div className="mt-3 space-y-3">
+                <p className="text-xs text-blue-700">
+                  A bookmarklet runs in your browser while you&apos;re on the job page, so it can read what you see — bot protection doesn&apos;t affect it.
+                </p>
+
+                {/* Step 1 — drag or copy */}
+                <div className="bg-white border border-blue-200 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-semibold text-slate-700">Step 1 — Add the bookmarklet to your browser</p>
+                  <p className="text-xs text-slate-500 mb-2">Drag the button below to your bookmarks bar, <em>or</em> copy the code and create a new bookmark manually (paste as the URL).</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a
+                      href={BOOKMARKLET_CODE}
+                      onClick={(e) => e.preventDefault()}
+                      draggable
+                      className="inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-500 text-amber-900 text-xs font-bold px-4 py-2 rounded-lg cursor-grab active:cursor-grabbing border border-amber-500 select-none">
+                      📌 Add to PM Career Ops
+                    </a>
+                    <button
+                      onClick={copyBookmarklet}
+                      className="text-xs text-slate-600 hover:text-slate-900 border border-slate-200 bg-white px-3 py-1.5 rounded-lg transition-colors">
+                      {bookmarkletCopied ? "✓ Copied!" : "Copy code"}
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400">💡 If your bookmarks bar isn&apos;t visible: Chrome → View → Always Show Bookmarks Bar (⌘⇧B / Ctrl+Shift+B)</p>
+                </div>
+
+                {/* Step 2 — use it */}
+                <div className="bg-white border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs font-semibold text-slate-700 mb-1">Step 2 — Use it on any job page</p>
+                  <ol className="text-xs text-slate-500 space-y-1 list-decimal list-inside">
+                    <li>Open the job posting in your browser (LinkedIn, Indeed, anywhere)</li>
+                    <li>Click <strong>📌 Add to PM Career Ops</strong> in your bookmarks bar</li>
+                    <li>A new tab opens here with the form pre-filled — review and save</li>
+                  </ol>
+                </div>
+              </div>
+            )}
           </div>
-          {importError && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{importError}</p>
-          )}
         </div>
       )}
 
@@ -248,5 +336,13 @@ export default function Pipeline() {
         prefill={prefill}
       />
     </div>
+  );
+}
+
+export default function Pipeline() {
+  return (
+    <Suspense fallback={<div className="py-16 text-center text-slate-400 text-sm">Loading…</div>}>
+      <PipelineInner />
+    </Suspense>
   );
 }

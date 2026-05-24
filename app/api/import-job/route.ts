@@ -63,6 +63,79 @@ function getMetaContent(html: string, ...attrs: string[]): string {
   return ''
 }
 
+function extractFromText(text: string): { role: string; company: string; descriptionText: string } {
+  let role = '', company = '', descriptionText = ''
+
+  // Look for "Title: ..." or "Position: ..." patterns common in Jina markdown output
+  const titleMatch = text.match(/(?:^|\n)(?:Title|Position|Job Title|Role)[:\s]+([^\n]+)/i)
+  if (titleMatch) {
+    const parsed = parseJobTitle(titleMatch[1].trim())
+    role = parsed.role
+    company = parsed.company
+  }
+
+  // Look for "Company: ..." or "Organization: ..." patterns
+  if (!company) {
+    const compMatch = text.match(/(?:^|\n)(?:Company|Organization|Employer|Hiring Company)[:\s]+([^\n]+)/i)
+    if (compMatch) company = compMatch[1].trim()
+  }
+
+  // First H1-style heading in markdown (# heading)
+  if (!role) {
+    const h1Match = text.match(/^#\s+([^\n]+)/m)
+    if (h1Match) {
+      const parsed = parseJobTitle(h1Match[1].trim())
+      role = parsed.role
+      if (!company) company = parsed.company
+    }
+  }
+
+  // First bold line (**...**) as fallback title
+  if (!role) {
+    const boldMatch = text.match(/\*\*([^*\n]{5,80})\*\*/)
+    if (boldMatch) {
+      const parsed = parseJobTitle(boldMatch[1].trim())
+      role = parsed.role
+      if (!company) company = parsed.company
+    }
+  }
+
+  // Use a portion of the text as description
+  descriptionText = text.replace(/\s+/g, ' ').trim().slice(0, 600)
+
+  return { role, company, descriptionText }
+}
+
+async function tryJinaFetch(url: string): Promise<{ role: string; company: string; keywords: string[]; notes: string } | null> {
+  try {
+    const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
+      headers: {
+        'Accept': 'text/plain',
+        'X-Return-Format': 'text',
+        'X-Timeout': '15',
+      },
+      signal: AbortSignal.timeout(18000),
+    })
+    if (!jinaRes.ok) return null
+    const text = await jinaRes.text()
+    if (!text || text.length < 100) return null
+
+    const { role, company, descriptionText } = extractFromText(text)
+    const keywords = extractKeywords(text)
+
+    if (!role && !company) return null
+
+    return {
+      role: role.trim(),
+      company: company.trim(),
+      keywords,
+      notes: descriptionText.slice(0, 500),
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}))
   const url: string = body.url ?? ''
@@ -84,9 +157,24 @@ export async function POST(request: Request) {
     // ── 0. Bot / security check detection ────────────────────────────────────
     const pageTitle = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.toLowerCase() ?? ''
     const botSignals = ['security check', 'captcha', 'access denied', 'robot', 'blocked', 'just a moment', 'verify you are human', 'attention required', 'ddos-guard', 'please enable js']
-    if (botSignals.some(s => pageTitle.includes(s))) {
+    const isBotBlocked = botSignals.some(s => pageTitle.includes(s))
+
+    if (isBotBlocked) {
+      // ── 0a. Try Jina AI as bypass ──────────────────────────────────────────
+      const jina = await tryJinaFetch(url)
+      if (jina && (jina.role || jina.company)) {
+        return NextResponse.json({
+          company: jina.company,
+          role: jina.role,
+          url,
+          source: detectSource(url),
+          keywords: jina.keywords,
+          notes: jina.notes,
+        })
+      }
+      // Jina also failed — return partial with warning
       return NextResponse.json({
-        error: `This site blocked the import (bot protection). Copy the job title and company manually — the URL and source have been pre-filled for you.`,
+        error: `This site blocked the import. The URL and source are pre-filled — please fill in the title and company manually.`,
         company: '',
         role: '',
         url,
@@ -154,9 +242,20 @@ export async function POST(request: Request) {
       notes: descriptionText.slice(0, 500),
     })
   } catch {
-    // Return partial data with detected source so user can fill the rest
+    // Direct fetch failed entirely — try Jina AI before giving up
+    const jina = await tryJinaFetch(url)
+    if (jina && (jina.role || jina.company)) {
+      return NextResponse.json({
+        company: jina.company,
+        role: jina.role,
+        url,
+        source: detectSource(url),
+        keywords: jina.keywords,
+        notes: jina.notes,
+      })
+    }
     return NextResponse.json({
-      error: 'Could not fetch — the site may block automated requests. Fields you can fill manually.',
+      error: 'Could not fetch this page. The URL and source are pre-filled — fill in the rest manually.',
       company: '',
       role: '',
       url,
