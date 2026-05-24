@@ -22,6 +22,45 @@ function detectSource(url: string): string {
   return 'Direct'
 }
 
+/** Extract company name directly from well-known ATS URL patterns */
+function companyFromUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    const host = u.hostname  // e.g. "ca.indeed.com", "boards.greenhouse.io"
+    const path = u.pathname  // e.g. "/cmp/Inbox-Monster/jobs/..."
+
+    // Indeed: /cmp/{slug}/...
+    const indeedMatch = path.match(/^\/cmp\/([^/]+)/)
+    if (indeedMatch) return slugToName(indeedMatch[1])
+
+    // Greenhouse: boards.greenhouse.io/{company}/jobs/...
+    const ghMatch = host.includes('greenhouse.io') && path.match(/^\/([^/]+)\/jobs\//)
+    if (ghMatch) return slugToName((ghMatch as RegExpMatchArray)[1])
+
+    // Lever: jobs.lever.co/{company}/...
+    const leverMatch = host.includes('lever.co') && path.match(/^\/([^/]+)\//)
+    if (leverMatch) return slugToName((leverMatch as RegExpMatchArray)[1])
+
+    // Workday: {company}.wd*.myworkdayjobs.com
+    const wdMatch = host.match(/^([^.]+)\.wd\d*\.myworkdayjobs\.com$/)
+    if (wdMatch) return slugToName(wdMatch[1])
+
+    // Ashby: jobs.ashbyhq.com/{company}/...
+    if (host.includes('ashbyhq.com')) {
+      const ashbyMatch = path.match(/^\/([^/]+)\//)
+      if (ashbyMatch) return slugToName(ashbyMatch[1])
+    }
+  } catch { /* ignore invalid URL */ }
+  return ''
+}
+
+function slugToName(slug: string): string {
+  return slug
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .trim()
+}
+
 function extractKeywords(text: string): string[] {
   const lower = text.toLowerCase()
   return PM_KEYWORDS.filter(kw => lower.includes(kw.toLowerCase())).slice(0, 15)
@@ -106,6 +145,13 @@ function extractFromText(text: string): { role: string; company: string; descrip
   return { role, company, descriptionText }
 }
 
+const JINA_BOT_SIGNALS = [
+  'ray id', 'cloudflare', 'additional verification required',
+  'access denied', 'security check', 'captcha', 'just a moment',
+  'please enable cookies', 'verify you are human', 'ddos-guard',
+  'enable javascript and cookies', 'checking your browser',
+]
+
 async function tryJinaFetch(url: string): Promise<{ role: string; company: string; keywords: string[]; notes: string } | null> {
   try {
     const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
@@ -119,6 +165,10 @@ async function tryJinaFetch(url: string): Promise<{ role: string; company: strin
     if (!jinaRes.ok) return null
     const text = await jinaRes.text()
     if (!text || text.length < 100) return null
+
+    // Detect if Jina also hit a bot-block page — discard to avoid garbage data
+    const lowerText = text.toLowerCase()
+    if (JINA_BOT_SIGNALS.some(sig => lowerText.includes(sig))) return null
 
     const { role, company, descriptionText } = extractFromText(text)
     const keywords = extractKeywords(text)
@@ -162,20 +212,21 @@ export async function POST(request: Request) {
     if (isBotBlocked) {
       // ── 0a. Try Jina AI as bypass ──────────────────────────────────────────
       const jina = await tryJinaFetch(url)
-      if (jina && (jina.role || jina.company)) {
+      const urlCompany = companyFromUrl(url)
+      if (jina && (jina.role || jina.company || urlCompany)) {
         return NextResponse.json({
-          company: jina.company,
-          role: jina.role,
+          company: jina?.company || urlCompany,
+          role: jina?.role || '',
           url,
           source: detectSource(url),
-          keywords: jina.keywords,
-          notes: jina.notes,
+          keywords: jina?.keywords ?? [],
+          notes: jina?.notes ?? '',
         })
       }
-      // Jina also failed — return partial with warning
+      // Jina also failed — use URL-derived company if available
       return NextResponse.json({
         error: `This site blocked the import. The URL and source are pre-filled — please fill in the title and company manually.`,
-        company: '',
+        company: urlCompany,
         role: '',
         url,
         source: detectSource(url),
@@ -184,7 +235,7 @@ export async function POST(request: Request) {
       })
     }
 
-    let role = '', company = '', descriptionText = ''
+    let role = '', company = companyFromUrl(url), descriptionText = ''
 
     // ── 1. JSON-LD JobPosting schema (most reliable) ──────────────────────────
     const scriptBlocks = Array.from(html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi))
@@ -243,10 +294,11 @@ export async function POST(request: Request) {
     })
   } catch {
     // Direct fetch failed entirely — try Jina AI before giving up
+    const urlCompany = companyFromUrl(url)
     const jina = await tryJinaFetch(url)
-    if (jina && (jina.role || jina.company)) {
+    if (jina && (jina.role || jina.company || urlCompany)) {
       return NextResponse.json({
-        company: jina.company,
+        company: jina.company || urlCompany,
         role: jina.role,
         url,
         source: detectSource(url),
@@ -256,7 +308,7 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({
       error: 'Could not fetch this page. The URL and source are pre-filled — fill in the rest manually.',
-      company: '',
+      company: urlCompany,
       role: '',
       url,
       source: detectSource(url),
