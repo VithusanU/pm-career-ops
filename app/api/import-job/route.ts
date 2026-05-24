@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     let role = '', company = '', descriptionText = ''
 
     // ── 1. JSON-LD JobPosting schema (most reliable) ──────────────────────────
-    const scriptBlocks = [...html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)]
+    const scriptBlocks = Array.from(html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi))
     for (const [, content] of scriptBlocks) {
       try {
         const parsed = JSON.parse(content.trim())
