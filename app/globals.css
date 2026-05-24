@@ -137,3 +137,18 @@ body {
 .dark .bg-brand-600   { background-color: #0284c7 !important; }
 .dark .bg-brand-500   { background-color: #0ea5e9 !important; }
 .dark .text-brand-600 { color: #38bdf8 !important; }
+
+/* ─── Priority badge fixes ───────────────────────────────────────────────── */
+
+/* High — red */
+.dark .text-red-700    { color: #fca5a5 !important; }
+.dark .border-red-200  { border-color: rgba(239, 68, 68, 0.35) !important; }
+
+/* Medium — yellow */
+.dark .border-yellow-200 { border-color: rgba(234, 179, 8, 0.35) !important; }
+
+/* Low — slate */
+.dark .text-slate-600  { color: #94a3b8 !important; }
+
+/* Yellow-50 bg (used in other pages) */
+.dark .bg-yellow-50    { background-color: rgba(234, 179, 8, 0.10) !important; }

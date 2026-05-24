@@ -20,9 +20,9 @@ const stageColors: Record<string, string> = {
 };
 
 const priorityColors: Record<string, string> = {
-  High:   "bg-red-50 text-red-600 border border-red-200",
-  Medium: "bg-yellow-50 text-yellow-700 border border-yellow-200",
-  Low:    "bg-slate-50 text-slate-500 border border-slate-200",
+  High:   "bg-red-100 text-red-700 border border-red-200",
+  Medium: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+  Low:    "bg-slate-100 text-slate-600 border border-slate-200",
 };
 
 interface ImportResult {

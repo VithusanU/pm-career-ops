@@ -21,7 +21,7 @@ export default function Companies() {
                 <h2 className="font-bold text-slate-900">{c.company}</h2>
                 <p className="text-xs text-slate-400">{c.role}</p>
               </div>
-              <span className={`badge ${c.priority === "High" ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500"}`}>
+              <span className={`badge ${c.priority === "High" ? "bg-red-100 text-red-700 border border-red-200" : c.priority === "Medium" ? "bg-yellow-100 text-yellow-700 border border-yellow-200" : "bg-slate-100 text-slate-600 border border-slate-200"}`}>
                 {c.priority}
               </span>
             </div>
