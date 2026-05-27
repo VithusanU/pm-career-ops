@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   title: "PM Career Ops",
   description: "Your personal PM job application operating system",
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: "/favicon-icon.png",
+    apple: "/favicon-icon.png",
   },
 };
 

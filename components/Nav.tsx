@@ -84,7 +84,7 @@ export default function Nav() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-1 h-14">
           <Link href="/" className="mr-4 shrink-0 overflow-hidden flex items-center">
-            <Image src="/logo.png" alt="PM Career Ops" width={200} height={66} className="h-16 w-auto scale-150 origin-center" priority />
+            <Image src="/logo.png" alt="PM Career Ops" width={200} height={66} className="h-16 w-auto scale-[1.75] origin-center" priority />
           </Link>
           <div className="flex-1 flex items-center gap-0.5 overflow-x-auto">
             {links.map(({ href, label }) => (
