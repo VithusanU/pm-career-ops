@@ -5,6 +5,10 @@ import Nav from "@/components/Nav";
 export const metadata: Metadata = {
   title: "PM Career Ops",
   description: "Your personal PM job application operating system",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
