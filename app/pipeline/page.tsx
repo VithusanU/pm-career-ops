@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import clsx from "clsx";
 import ApplicationModal from "@/components/ApplicationModal";
@@ -286,9 +287,14 @@ function PipelineInner() {
                   <td className="px-4 py-3">
                     <p className="font-semibold text-slate-900">{app.company}</p>
                     <p className="text-slate-400 text-xs">{app.role}</p>
-                    {app.url && (
-                      <a href={app.url} target="_blank" rel="noreferrer" className="text-blue-400 text-xs hover:underline">Job posting ↗</a>
-                    )}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {app.url && (
+                        <a href={app.url} target="_blank" rel="noreferrer" className="text-blue-400 text-xs hover:underline">Job posting ↗</a>
+                      )}
+                      <Link href="/companies" className="text-xs text-sky-600 hover:text-sky-800 font-medium hover:underline">
+                        🔬 Research
+                      </Link>
+                    </div>
                     {app.date_applied && <p className="text-slate-300 text-xs">Applied {app.date_applied}</p>}
                   </td>
                   <td className="px-4 py-3">
