@@ -56,7 +56,7 @@ function loadChecked(): Set<string> {
 
 function saveChecked(checked: Set<string>) {
   try {
-    localStorage.setItem(todayKey(), JSON.stringify([...checked]));
+    localStorage.setItem(todayKey(), JSON.stringify(Array.from(checked)));
   } catch {}
 }
 
