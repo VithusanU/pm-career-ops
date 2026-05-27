@@ -82,9 +82,9 @@ export default function Nav() {
   return (
     <nav className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-1 h-14">
+        <div className="flex items-center gap-1 h-16">
           <Link href="/" className="mr-4 shrink-0">
-            <Image src="/logo.png" alt="PM Career Ops" width={140} height={46} className="h-9 w-auto" priority />
+            <Image src="/logo.png" alt="PM Career Ops" width={200} height={66} className="h-12 w-auto" priority />
           </Link>
           <div className="flex-1 flex items-center gap-0.5 overflow-x-auto">
             {links.map(({ href, label }) => (
