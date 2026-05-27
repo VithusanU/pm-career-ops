@@ -42,6 +42,17 @@ export interface Contact {
   created_at: string
 }
 
+export interface CompanyDoc {
+  id: string
+  user_id: string
+  company: string
+  file_name: string
+  file_path: string
+  file_size: number
+  file_type: string
+  created_at: string
+}
+
 export interface ContentItem {
   id: string
   user_id: string

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import applications from "@/data/applications.json";
+import CompanyDocs from "@/components/CompanyDocs";
 
 export default function Companies() {
   const companies = Array.from(new Map(applications.map((a) => [a.company, a])).values());
@@ -31,7 +32,7 @@ export default function Companies() {
                 <span key={kw} className="badge bg-blue-50 text-blue-600">{kw}</span>
               ))}
             </div>
-            <div className="border-t border-slate-100 pt-3 mt-auto">
+            <div className="border-t border-slate-100 pt-3 mt-3">
               <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Research Checklist</p>
               <ul className="text-xs text-slate-600 space-y-1">
                 {[
@@ -49,6 +50,7 @@ export default function Companies() {
                 ))}
               </ul>
             </div>
+            <CompanyDocs company={c.company} />
           </div>
         ))}
 
