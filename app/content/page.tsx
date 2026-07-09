@@ -1,7 +1,9 @@
 "use client";
-import { useState } from "react";
-import rawContent from "@/data/content.json";
+import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
 import clsx from "clsx";
+import ContentModal from "@/components/ContentModal";
+import type { ContentItem } from "@/lib/types";
 
 const statusColors: Record<string, string> = {
   Idea:      "bg-slate-100 text-slate-600",
@@ -115,8 +117,30 @@ const ARTICLE_TEMPLATES = [
 ];
 
 export default function Content() {
-  const [posts] = useState(rawContent);
+  const supabase = createClient();
+  const [posts, setPosts] = useState<ContentItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTemplate, setActiveTemplate] = useState(0);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<ContentItem | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("content_items").select("*").order("created_at", { ascending: false });
+    setPosts(data ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openAdd = () => { setEditing(null); setModalOpen(true); };
+  const openEdit = (p: ContentItem) => { setEditing(p); setModalOpen(true); };
+
+  const deletePost = async (id: string) => {
+    if (!confirm("Delete this content item?")) return;
+    await supabase.from("content_items").delete().eq("id", id);
+    setPosts((prev) => prev.filter((p) => p.id !== id));
+  };
 
   const ideas = posts.filter((p) => p.status === "Idea").length;
   const drafts = posts.filter((p) => p.status === "Draft").length;
@@ -124,11 +148,17 @@ export default function Content() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Content Engine</h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Turn every company analysis into a portfolio piece. 2 posts/week minimum.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Content Engine</h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Turn every company analysis into a portfolio piece. 2 posts/week minimum.
+          </p>
+        </div>
+        <button onClick={openAdd}
+          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+          + Add Content
+        </button>
       </div>
 
       {/* Stats */}
@@ -148,29 +178,42 @@ export default function Content() {
       {/* Content list */}
       <div className="card">
         <h2 className="font-semibold text-slate-900 mb-3">Content Tracker</h2>
-        <div className="space-y-3">
-          {posts.map((post) => (
-            <div key={post.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50">
-              <span className={clsx("badge mt-0.5 shrink-0", statusColors[post.status])}>{post.status}</span>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-slate-800 text-sm">{post.title}</p>
-                <div className="flex gap-2 mt-1 flex-wrap">
-                  <span className="badge bg-slate-100 text-slate-500">{post.type}</span>
-                  {post.platform.map((p) => (
-                    <span key={p} className="badge bg-blue-50 text-blue-600">{p}</span>
-                  ))}
-                  {post.targetCompany && (
-                    <span className="badge bg-purple-50 text-purple-600">→ {post.targetCompany}</span>
-                  )}
+        {loading ? (
+          <p className="text-sm text-slate-400 text-center py-8">Loading…</p>
+        ) : posts.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-slate-400 text-sm mb-3">No content yet.</p>
+            <button onClick={openAdd} className="text-blue-600 text-sm font-medium hover:underline">Add your first idea →</button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {posts.map((post) => (
+              <div key={post.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 group">
+                <span className={clsx("badge mt-0.5 shrink-0", statusColors[post.status])}>{post.status}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-800 text-sm">{post.title}</p>
+                  <div className="flex gap-2 mt-1 flex-wrap">
+                    <span className="badge bg-slate-100 text-slate-500">{post.type}</span>
+                    {(post.platform ?? []).map((p) => (
+                      <span key={p} className="badge bg-blue-50 text-blue-600">{p}</span>
+                    ))}
+                    {post.target_company && (
+                      <span className="badge bg-purple-50 text-purple-600">→ {post.target_company}</span>
+                    )}
+                  </div>
+                  {post.notes && <p className="text-xs text-slate-400 mt-1">{post.notes}</p>}
                 </div>
-                {post.notes && <p className="text-xs text-slate-400 mt-1">{post.notes}</p>}
+                {post.date_published && (
+                  <p className="text-xs text-slate-400 shrink-0">{post.date_published}</p>
+                )}
+                <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => openEdit(post)} className="text-slate-400 hover:text-blue-600 text-xs font-medium">Edit</button>
+                  <button onClick={() => deletePost(post.id)} className="text-slate-400 hover:text-red-500 text-xs font-medium">Delete</button>
+                </div>
               </div>
-              {post.datePublished && (
-                <p className="text-xs text-slate-400 shrink-0">{post.datePublished}</p>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Article templates */}
@@ -217,6 +260,8 @@ export default function Content() {
           ))}
         </div>
       </div>
+
+      <ContentModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSaved={load} initial={editing} />
     </div>
   );
 }

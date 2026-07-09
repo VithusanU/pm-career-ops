@@ -13,6 +13,8 @@ function LoginContent() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: "https://www.googleapis.com/auth/gmail.readonly",
+        queryParams: { access_type: "offline", prompt: "consent" },
       },
     });
   };
@@ -47,6 +49,10 @@ function LoginContent() {
           </svg>
           Continue with Google
         </button>
+
+        <p className="text-xs text-slate-400 mt-4">
+          Also asks for read-only Gmail access, used only to detect application status emails (rejections, interview requests, offers) — never sent anywhere, and every match still requires your approval before it changes your pipeline.
+        </p>
 
         <p className="text-xs text-slate-400 mt-6">
           Free to use. Your data is private — only you can see it.

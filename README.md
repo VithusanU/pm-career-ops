@@ -33,7 +33,11 @@ Most job seekers use a spreadsheet. A spreadsheet tracks the past — it does no
 
 **Fit scoring** — Rate each application 1–100 based on role alignment, company quality, and skill match. Forces prioritisation when you have 40 applications and three days to prep.
 
-**Next action tracking** — Every application has a next action and date. The dashboard surfaces what needs attention today.
+**Next action tracking** — Every application has a next action and date. The dashboard surfaces what needs attention today, plus a stage-by-stage funnel and a "needs attention" list for active applications missing a next step.
+
+**Gmail status sync (optional)** — Detects application-related emails (rejections, interview requests, offers) via read-only Gmail access and surfaces them as suggestions on the Pipeline page. Nothing is written to your pipeline automatically — you accept or dismiss each match.
+
+**CSV import/export** — Bring in an existing spreadsheet or back up your pipeline at any time from the Pipeline page.
 
 **Dark mode** — Full light/dark toggle, persists across sessions.
 
@@ -74,40 +78,25 @@ Create `.env.local`:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
+
+# Required only for Gmail application-status sync (Pipeline page → "Sync Gmail").
+# Use the SAME Google Cloud OAuth client you already configured as the
+# Google provider in Supabase Auth settings — it just needs the Gmail API
+# enabled and https://www.googleapis.com/auth/gmail.readonly added to its
+# consent screen scopes. Without these two set, the rest of the app works
+# fine — the Gmail sync button just returns a "not configured" message.
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
 ```
 
 ### 3. Database schema
 
-Run the following in your Supabase SQL editor:
-
-```sql
-create table applications (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null,
-  company text not null,
-  role text not null,
-  url text,
-  source text,
-  stage text default 'Researching',
-  priority text default 'Medium',
-  score integer default 60,
-  date_applied text,
-  date_added text,
-  next_action text default '',
-  next_action_date text,
-  notes text default '',
-  ats_keywords text[],
-  contact_name text default '',
-  contact_linkedin text default '',
-  response text default 'None',
-  created_at timestamptz default now()
-);
-
-alter table applications enable row level security;
-create policy "Users manage own applications"
-  on applications for all using (auth.uid() = user_id);
-```
+Run `supabase/schema.sql` in your Supabase SQL editor, then run
+`supabase/migrations/002_pm_ops_v2.sql` (adds companies, the fit-score
+rubric, daily-checklist history, and Gmail sync tables). Migration 002 is
+additive-only and backfills from your existing data — it won't touch or
+require re-entering anything already in `applications`.
 
 ### 4. Start dev server
 

@@ -27,7 +27,7 @@ function fileIcon(type: string) {
   return "📎";
 }
 
-export default function CompanyDocs({ company }: { company: string }) {
+export default function CompanyDocs({ company, companyId }: { company: string; companyId?: string | null }) {
   const supabase = createClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -39,18 +39,15 @@ export default function CompanyDocs({ company }: { company: string }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    const { data, error } = await supabase
-      .from("company_docs")
-      .select("*")
-      .eq("company", company)
-      .eq("user_id", user.id)
+    const query = supabase.from("company_docs").select("*").eq("user_id", user.id);
+    const { data, error } = await (companyId ? query.eq("company_id", companyId) : query.eq("company", company))
       .order("created_at", { ascending: false });
 
     if (!error) setDocs(data ?? []);
     setLoading(false);
   };
 
-  useEffect(() => { loadDocs(); }, [company]);
+  useEffect(() => { loadDocs(); }, [company, companyId]);
 
   const upload = async (file: File) => {
     setUploading(true);
@@ -70,6 +67,7 @@ export default function CompanyDocs({ company }: { company: string }) {
       const { error: dbErr } = await supabase.from("company_docs").insert({
         user_id: user.id,
         company,
+        company_id: companyId ?? null,
         file_name: file.name,
         file_path: path,
         file_size: file.size,

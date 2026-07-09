@@ -8,12 +8,16 @@ export interface Application {
   id: string
   user_id: string
   company: string
+  company_id: string | null
   role: string
   url: string
   source: string
   stage: Stage
   priority: Priority
   score: number
+  score_role_fit: number | null
+  score_company_quality: number | null
+  score_skill_match: number | null
   date_added: string
   date_applied: string | null
   next_action: string
@@ -26,12 +30,22 @@ export interface Application {
   created_at: string
 }
 
+export interface Company {
+  id: string
+  user_id: string
+  name: string
+  slug: string
+  checklist: { id: string; label: string; done: boolean }[]
+  created_at: string
+}
+
 export interface Contact {
   id: string
   user_id: string
   name: string
   title: string
   company: string
+  company_id: string | null
   linkedin: string
   type: ContactType
   status: ContactStatus
@@ -46,6 +60,7 @@ export interface CompanyDoc {
   id: string
   user_id: string
   company: string
+  company_id: string | null
   file_name: string
   file_path: string
   file_size: number
@@ -65,5 +80,17 @@ export interface ContentItem {
   date_published: string | null
   outline: string
   notes: string
+  created_at: string
+}
+
+export interface GmailStatusSignal {
+  id: string
+  user_id: string
+  application_id: string
+  gmail_message_id: string
+  detected_type: 'rejected' | 'interview' | 'update' | 'offer'
+  snippet: string
+  email_date: string | null
+  status: 'pending' | 'accepted' | 'dismissed'
   created_at: string
 }

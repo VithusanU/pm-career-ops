@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Modal from "./Modal";
 import { createClient } from "@/lib/supabase/client";
+import { getOrCreateCompany } from "@/lib/companies";
 import type { Contact, ContactType, ContactStatus } from "@/lib/types";
 
 const TYPES: ContactType[] = ["PM", "Recruiter", "Founder", "Leader"];
@@ -46,8 +47,14 @@ export default function ContactModal({ isOpen, onClose, onSaved, initial }: Prop
   const save = async () => {
     if (!form.name.trim()) { setError("Name is required."); return; }
     setSaving(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError("You must be signed in to save contacts."); setSaving(false); return; }
+
+    const company_id = form.company.trim() ? await getOrCreateCompany(supabase, user.id, form.company) : null;
+
     const payload = {
-      name: form.name.trim(), title: form.title, company: form.company,
+      name: form.name.trim(), title: form.title, company: form.company, company_id,
       linkedin: form.linkedin, type: form.type, status: form.status,
       last_contact: form.last_contact || null, next_follow_up: form.next_follow_up || null,
       notes: form.notes, coffee_chat: form.coffee_chat,
@@ -56,7 +63,7 @@ export default function ContactModal({ isOpen, onClose, onSaved, initial }: Prop
       const { error } = await supabase.from("contacts").update(payload).eq("id", initial!.id);
       if (error) { setError(error.message); setSaving(false); return; }
     } else {
-      const { error } = await supabase.from("contacts").insert(payload);
+      const { error } = await supabase.from("contacts").insert({ ...payload, user_id: user.id });
       if (error) { setError(error.message); setSaving(false); return; }
     }
     setSaving(false);

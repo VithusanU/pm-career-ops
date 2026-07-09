@@ -39,8 +39,20 @@ export async function GET(request: Request) {
       }
     )
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) return NextResponse.redirect(`${baseUrl}/`)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error) {
+      // Google only returns a refresh token on the consent screen it actually
+      // showed (prompt=consent, requested in the login page's OAuth call) —
+      // capture it here since this is the only place it's ever handed to us.
+      const refreshToken = data.session?.provider_refresh_token
+      if (refreshToken && data.session?.user) {
+        await supabase.from('gmail_sync_tokens').upsert({
+          user_id: data.session.user.id,
+          refresh_token: refreshToken,
+        })
+      }
+      return NextResponse.redirect(`${baseUrl}/`)
+    }
     return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent(error.message)}`)
   }
 

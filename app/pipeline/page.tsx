@@ -1,11 +1,20 @@
 "use client";
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { getOrCreateCompany } from "@/lib/companies";
+import { toCSV, parseCSV, downloadCSV } from "@/lib/csv";
 import clsx from "clsx";
 import ApplicationModal from "@/components/ApplicationModal";
+import GmailSignals from "@/components/GmailSignals";
 import type { Application, Stage } from "@/lib/types";
+
+const CSV_COLUMNS = [
+  "company", "role", "url", "source", "stage", "priority", "score",
+  "date_applied", "next_action", "next_action_date", "notes",
+  "ats_keywords", "contact_name", "contact_linkedin", "response",
+];
 
 const STAGES: Stage[] = ["Researching", "Applied", "Phone Screen", "Interview", "Final Round", "Offer", "Rejected", "Withdrawn"];
 
@@ -49,6 +58,11 @@ function PipelineInner() {
   const [importError, setImportError] = useState("");
   const [showBookmarklet, setShowBookmarklet] = useState(false);
   const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
+
+  // CSV import/export
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvMessage, setCsvMessage] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,6 +134,66 @@ function PipelineInner() {
     setImporting(false);
   };
 
+  const exportCSV = () => {
+    const rows = apps.map((a) => ({ ...a, ats_keywords: (a.ats_keywords ?? []).join("; ") }));
+    downloadCSV(`pm-career-ops-applications-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(rows, CSV_COLUMNS));
+  };
+
+  const importCSV = async (file: File) => {
+    setCsvImporting(true);
+    setCsvMessage("");
+    try {
+      const text = await file.text();
+      const parsed = parseCSV(text);
+      if (parsed.length === 0) { setCsvMessage("No rows found in that file."); setCsvImporting(false); return; }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setCsvMessage("You must be signed in to import."); setCsvImporting(false); return; }
+
+      let inserted = 0;
+      let skipped = 0;
+      const companyIdCache = new Map<string, string | null>();
+
+      for (const row of parsed) {
+        const company = row.company?.trim();
+        const role = row.role?.trim();
+        if (!company || !role) { skipped++; continue; }
+
+        if (!companyIdCache.has(company)) {
+          companyIdCache.set(company, await getOrCreateCompany(supabase, user.id, company));
+        }
+
+        const { error } = await supabase.from("applications").insert({
+          user_id: user.id,
+          company, company_id: companyIdCache.get(company) ?? null,
+          role,
+          url: row.url ?? "",
+          source: row.source || "Direct",
+          stage: (row.stage as Stage) || "Researching",
+          priority: row.priority || "Medium",
+          score: Number(row.score) || 50,
+          date_added: new Date().toISOString().split("T")[0],
+          date_applied: row.date_applied || null,
+          next_action: row.next_action ?? "",
+          next_action_date: row.next_action_date || null,
+          notes: row.notes ?? "",
+          ats_keywords: row.ats_keywords ? row.ats_keywords.split(/[;,]/).map((k) => k.trim()).filter(Boolean) : [],
+          contact_name: row.contact_name ?? "",
+          contact_linkedin: row.contact_linkedin ?? "",
+          response: row.response || "None",
+        });
+        if (error) skipped++; else inserted++;
+      }
+
+      setCsvMessage(`Imported ${inserted} application${inserted === 1 ? "" : "s"}${skipped ? `, skipped ${skipped}` : ""}.`);
+      await load();
+    } catch {
+      setCsvMessage("Couldn't read that file — make sure it's a CSV exported from here or with matching column headers.");
+    }
+    setCsvImporting(false);
+    if (importInputRef.current) importInputRef.current.value = "";
+  };
+
   const BOOKMARKLET_CODE = `javascript:(function(){var t=document.querySelector('h1')?.innerText?.trim()||document.title||'';var c='';var sels=['[class*="company-name"]','[class*="companyName"]','[data-company]','[class*="employer"]','[class*="company"]'];for(var i=0;i<sels.length;i++){var el=document.querySelector(sels[i]);if(el&&el.innerText&&el.innerText.trim().length>1&&el.innerText.trim().length<80){c=el.innerText.trim();break;}}var src='Direct';var h=location.href;if(h.includes('linkedin.com'))src='LinkedIn';else if(h.includes('indeed.com'))src='Indeed';else if(h.includes('greenhouse.io'))src='Greenhouse';else if(h.includes('lever.co'))src='Lever';else if(h.includes('workday.com'))src='Workday';else if(h.includes('wellfound.com')||h.includes('angel.co'))src='AngelList';else if(h.includes('workatastartup.com'))src='YC Jobs';var p=new URLSearchParams({_import:'1',_title:t,_company:c,_url:h,_source:src});window.open('${typeof window !== "undefined" ? window.location.origin : ""}/pipeline?'+p.toString(),'_blank');})();`;
 
   const copyBookmarklet = async () => {
@@ -151,6 +225,21 @@ function PipelineInner() {
             <option value="score">Sort: Score</option>
             <option value="date_added">Sort: Date Added</option>
           </select>
+          <button onClick={exportCSV} disabled={apps.length === 0}
+            className="text-sm font-semibold px-4 py-2 rounded-lg border bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-colors">
+            ⬇ Export CSV
+          </button>
+          <button onClick={() => importInputRef.current?.click()} disabled={csvImporting}
+            className="text-sm font-semibold px-4 py-2 rounded-lg border bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 transition-colors">
+            {csvImporting ? "Importing…" : "⬆ Import CSV"}
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) importCSV(f); }}
+          />
           <button
             onClick={() => { setShowImport((v) => !v); setImportError(""); }}
             className={clsx(
@@ -167,6 +256,12 @@ function PipelineInner() {
           </button>
         </div>
       </div>
+
+      {csvMessage && (
+        <p className="text-xs text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2">{csvMessage}</p>
+      )}
+
+      <GmailSignals applications={apps} onApplied={load} />
 
       {/* URL Import Row */}
       {showImport && (
@@ -260,7 +355,7 @@ function PipelineInner() {
         })}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         {loading ? (
           <div className="py-16 text-center text-slate-400 text-sm">Loading…</div>
         ) : visible.length === 0 ? (
@@ -269,7 +364,7 @@ function PipelineInner() {
             <button onClick={openAdd} className="text-blue-600 text-sm font-medium hover:underline">Add your first one →</button>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[720px]">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Company / Role</th>
