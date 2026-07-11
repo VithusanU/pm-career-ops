@@ -58,8 +58,9 @@ export async function POST() {
     }),
   })
   if (!tokenRes.ok) {
+    const detail = await tokenRes.text()
     return NextResponse.json(
-      { error: 'Could not refresh Gmail access — try signing out and back in to reconnect.' },
+      { error: `Could not refresh Gmail access (Google said: ${detail.slice(0, 300)}) — try signing out and back in to reconnect.` },
       { status: 400 }
     )
   }
