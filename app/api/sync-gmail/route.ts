@@ -5,9 +5,9 @@ import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from '@/lib/google/config'
 // Conservative keyword classification — this only ever *suggests* a status;
 // the user accepts or dismisses each match in the UI, so a false positive
 // here costs a click, not a silently corrupted pipeline.
-const REJECT_RE = /unfortunately|not (?:be )?moving forward|other candidates|not selected|will not be (?:moving|proceeding)|position has been filled|decided not to (?:move|proceed)|pursue other candidates/i
-const OFFER_RE = /pleased to offer|excited to extend|formal offer|offer letter|extend an offer/i
-const INTERVIEW_RE = /schedule (?:a|your) (?:call|interview)|next steps|phone screen|move forward with your application|would like to (?:interview|speak)|invite you to interview/i
+const REJECT_RE = /unfortunately|decision not to|decided not to|not (?:be )?mov(?:e|ing) forward|not to move forward|other candidates|not selected|not the right fit|not be (?:moving|proceeding|advancing)|will not be (?:moving|proceeding|advancing)|position has been filled|pursue other candidates|not moving ahead|move forward with other candidates/i
+const OFFER_RE = /pleased to offer|excited to extend|formal offer|offer letter|extend an offer|thrilled to offer/i
+const INTERVIEW_RE = /schedule (?:a|your) (?:call|interview)|next steps|phone screen|move forward with your application|would like to (?:interview|speak)|invite you to interview|advance(?:d|ing)? (?:you|your application) to the next/i
 
 function classify(text: string): 'rejected' | 'offer' | 'interview' | 'update' {
   if (REJECT_RE.test(text)) return 'rejected'
