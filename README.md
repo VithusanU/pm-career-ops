@@ -88,6 +88,13 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
 # fine — the Gmail sync button just returns a "not configured" message.
 GOOGLE_CLIENT_ID=your_google_oauth_client_id
 GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
+
+# Optional — if set, Gmail status emails are classified by Claude instead of
+# keyword matching, which catches phrasing keyword rules miss (e.g. "we've
+# made the decision not to move forward"). Without this, the keyword
+# classifier still runs as a fallback, so nothing breaks — matches are just
+# less reliable on non-standard wording. Get a key at console.anthropic.com.
+ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
 ### 3. Database schema

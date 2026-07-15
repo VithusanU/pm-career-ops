@@ -1,19 +1,26 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from '@/lib/google/config'
+import { classifyEmailWithAI, type EmailClassification } from '@/lib/anthropic/classify'
 
-// Conservative keyword classification — this only ever *suggests* a status;
-// the user accepts or dismisses each match in the UI, so a false positive
-// here costs a click, not a silently corrupted pipeline.
+// Keyword fallback — used only when ANTHROPIC_API_KEY isn't configured, or
+// if the AI call fails. Kept deliberately conservative: this only ever
+// *suggests* a status, the user accepts or dismisses each match in the UI,
+// so a false positive here costs a click, not a silently corrupted pipeline.
 const REJECT_RE = /unfortunately|decision not to|decided not to|not (?:be )?mov(?:e|ing) forward|not to move forward|other candidates|not selected|not the right fit|not be (?:moving|proceeding|advancing)|will not be (?:moving|proceeding|advancing)|position has been filled|pursue other candidates|not moving ahead|move forward with other candidates/i
 const OFFER_RE = /pleased to offer|excited to extend|formal offer|offer letter|extend an offer|thrilled to offer/i
 const INTERVIEW_RE = /schedule (?:a|your) (?:call|interview)|next steps|phone screen|move forward with your application|would like to (?:interview|speak)|invite you to interview|advance(?:d|ing)? (?:you|your application) to the next/i
 
-function classify(text: string): 'rejected' | 'offer' | 'interview' | 'update' {
+function classifyByKeyword(text: string): EmailClassification {
   if (REJECT_RE.test(text)) return 'rejected'
   if (OFFER_RE.test(text)) return 'offer'
   if (INTERVIEW_RE.test(text)) return 'interview'
   return 'update'
+}
+
+async function classify(subject: string, snippet: string): Promise<EmailClassification> {
+  const aiResult = await classifyEmailWithAI(subject, snippet)
+  return aiResult ?? classifyByKeyword(`${subject} ${snippet}`)
 }
 
 function normalize(s: string): string {
@@ -112,7 +119,7 @@ export async function POST() {
     })
     if (!match) continue
 
-    const detected_type = classify(`${subject} ${snippet}`)
+    const detected_type = await classify(subject, snippet)
     const { error } = await supabase.from('gmail_status_signals').upsert(
       {
         user_id: user.id,
