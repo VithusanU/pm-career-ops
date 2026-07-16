@@ -79,7 +79,7 @@ export async function POST() {
     .not('stage', 'in', '("Rejected","Withdrawn")')
   const activeApps = apps ?? []
   if (activeApps.length === 0) {
-    return NextResponse.json({ scanned: 0, matched: 0 })
+    return NextResponse.json({ scanned: 0, applied: [] })
   }
 
   const listRes = await fetch(
@@ -96,7 +96,7 @@ export async function POST() {
   const { messages } = (await listRes.json()) as { messages?: { id: string }[] }
 
   let scanned = 0
-  let matched = 0
+  const applied: { company: string; detected_type: EmailClassification; newStage?: string }[] = []
 
   for (const m of messages ?? []) {
     scanned++
@@ -120,22 +120,48 @@ export async function POST() {
     if (!match) continue
 
     const detected_type = await classify(subject, snippet)
-    const { error } = await supabase.from('gmail_status_signals').upsert(
-      {
-        user_id: user.id,
-        application_id: match.id,
-        gmail_message_id: m.id,
-        detected_type,
-        snippet: snippet.slice(0, 300),
-        email_date: dateHeader ? new Date(dateHeader).toISOString() : null,
-        status: 'pending',
-      },
-      { onConflict: 'user_id,gmail_message_id,application_id', ignoreDuplicates: true }
-    )
-    if (!error) matched++
+
+    // Record this email/application pair before applying anything. The unique
+    // constraint + ignoreDuplicates means a message we've already processed in
+    // a prior sync comes back with no row here — we skip re-applying it, so
+    // re-syncing never re-fires an update you may have since corrected by hand.
+    const { data: inserted, error } = await supabase
+      .from('gmail_status_signals')
+      .upsert(
+        {
+          user_id: user.id,
+          application_id: match.id,
+          gmail_message_id: m.id,
+          detected_type,
+          snippet: snippet.slice(0, 300),
+          email_date: dateHeader ? new Date(dateHeader).toISOString() : null,
+          status: 'applied',
+        },
+        { onConflict: 'user_id,gmail_message_id,application_id', ignoreDuplicates: true }
+      )
+      .select('id')
+
+    if (error || !inserted || inserted.length === 0) continue
+
+    const updates: { stage?: string; response?: string } = {}
+    if (detected_type === 'rejected') {
+      updates.stage = 'Rejected'
+      updates.response = 'Rejected (via Gmail, AI-classified)'
+    } else if (detected_type === 'offer') {
+      updates.stage = 'Offer'
+      updates.response = 'Offer received (via Gmail, AI-classified)'
+    } else if (detected_type === 'interview') {
+      if (match.stage === 'Applied') updates.stage = 'Phone Screen'
+      updates.response = 'Interview requested (via Gmail, AI-classified)'
+    } else {
+      updates.response = 'Update received (via Gmail, AI-classified) — check email'
+    }
+
+    await supabase.from('applications').update(updates).eq('id', match.id)
+    applied.push({ company: match.company, detected_type, newStage: updates.stage })
   }
 
   await supabase.from('gmail_sync_tokens').update({ last_synced_at: new Date().toISOString() }).eq('user_id', user.id)
 
-  return NextResponse.json({ scanned, matched })
+  return NextResponse.json({ scanned, applied })
 }
