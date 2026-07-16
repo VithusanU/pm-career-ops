@@ -27,6 +27,54 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+function decodeBase64Url(data: string): string {
+  const base64 = data.replace(/-/g, '+').replace(/_/g, '/')
+  return Buffer.from(base64, 'base64').toString('utf-8')
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+interface GmailPart {
+  mimeType?: string
+  body?: { data?: string }
+  parts?: GmailPart[]
+}
+
+/** Gmail's `snippet` field is just a short auto-generated preview (often only
+ * the first sentence) — the actual status sentence in a real email is almost
+ * always further down, so classification needs the full body, not the preview. */
+function extractBody(payload: GmailPart | undefined): string {
+  if (!payload) return ''
+  if (payload.mimeType === 'text/plain' && payload.body?.data) {
+    return decodeBase64Url(payload.body.data)
+  }
+  if (payload.mimeType === 'text/html' && payload.body?.data) {
+    return stripHtml(decodeBase64Url(payload.body.data))
+  }
+  if (payload.parts) {
+    const plain = payload.parts.find((p) => p.mimeType === 'text/plain')
+    if (plain?.body?.data) return decodeBase64Url(plain.body.data)
+    const html = payload.parts.find((p) => p.mimeType === 'text/html')
+    if (html?.body?.data) return stripHtml(decodeBase64Url(html.body.data))
+    for (const part of payload.parts) {
+      const nested = extractBody(part)
+      if (nested) return nested
+    }
+  }
+  if (payload.body?.data) return decodeBase64Url(payload.body.data)
+  return ''
+}
+
+const STAGE_ORDER = ['Researching', 'Applied', 'Phone Screen', 'Interview', 'Final Round', 'Offer'] as const
+
 interface GmailHeader { name: string; value: string }
 
 export async function POST() {
@@ -101,7 +149,7 @@ export async function POST() {
   for (const m of messages ?? []) {
     scanned++
     const msgRes = await fetch(
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`,
       { headers: { Authorization: `Bearer ${access_token}` } }
     )
     if (!msgRes.ok) continue
@@ -111,7 +159,8 @@ export async function POST() {
     const subject = headers.find((h) => h.name === 'Subject')?.value ?? ''
     const dateHeader = headers.find((h) => h.name === 'Date')?.value
     const snippet: string = msg.snippet ?? ''
-    const haystack = normalize(`${from} ${subject} ${snippet}`)
+    const bodyText = (extractBody(msg.payload) || snippet).slice(0, 4000)
+    const haystack = normalize(`${from} ${subject} ${bodyText}`)
 
     const match = activeApps.find((a) => {
       const name = normalize(a.company)
@@ -119,7 +168,7 @@ export async function POST() {
     })
     if (!match) continue
 
-    const detected_type = await classify(subject, snippet)
+    const detected_type = await classify(subject, bodyText)
 
     // Record this email/application pair before applying anything. The unique
     // constraint + ignoreDuplicates means a message we've already processed in
@@ -151,7 +200,9 @@ export async function POST() {
       updates.stage = 'Offer'
       updates.response = 'Offer received (via Gmail, AI-classified)'
     } else if (detected_type === 'interview') {
-      if (match.stage === 'Applied') updates.stage = 'Phone Screen'
+      const currentIndex = STAGE_ORDER.indexOf(match.stage as (typeof STAGE_ORDER)[number])
+      const phoneScreenIndex = STAGE_ORDER.indexOf('Phone Screen')
+      if (currentIndex !== -1 && currentIndex < phoneScreenIndex) updates.stage = 'Phone Screen'
       updates.response = 'Interview requested (via Gmail, AI-classified)'
     } else {
       updates.response = 'Update received (via Gmail, AI-classified) — check email'

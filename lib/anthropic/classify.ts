@@ -31,7 +31,7 @@ const SCHEMA = {
  * fall back to the keyword-based classifier in that case, never hard-fail
  * the sync over a classification miss.
  */
-export async function classifyEmailWithAI(subject: string, snippet: string): Promise<EmailClassification | null> {
+export async function classifyEmailWithAI(subject: string, body: string): Promise<EmailClassification | null> {
   const anthropic = getClient()
   if (!anthropic) return null
 
@@ -51,8 +51,10 @@ export async function classifyEmailWithAI(subject: string, snippet: string): Pro
 - "interview": the company wants to schedule an interview, phone screen, or next step
 - "update": anything else related to the application (acknowledgment, generic status update, etc.)
 
+Read the full body, not just the opening line — the actual decision is often stated a paragraph or two in, after a generic thank-you opener.
+
 Subject: ${subject}
-Preview: ${snippet}`,
+Body: ${body}`,
         },
       ],
     })
