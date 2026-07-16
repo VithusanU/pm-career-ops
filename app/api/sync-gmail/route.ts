@@ -83,8 +83,8 @@ export async function POST() {
   }
 
   const listRes = await fetch(
-    'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=30&q=' +
-      encodeURIComponent('newer_than:45d (application OR interview OR "thank you for applying" OR recruiting OR candidacy OR offer)'),
+    'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=50&q=' +
+      encodeURIComponent('newer_than:90d (application OR interview OR "thank you for applying" OR recruiting OR candidacy OR offer)'),
     { headers: { Authorization: `Bearer ${access_token}` } }
   )
   if (!listRes.ok) {

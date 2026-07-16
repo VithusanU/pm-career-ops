@@ -19,6 +19,7 @@ export default function GmailSignals({ applications, onApplied }: Props) {
   const supabase = createClient();
   const [pending, setPending] = useState<GmailStatusSignal[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   const [available, setAvailable] = useState(true);
 
@@ -89,6 +90,25 @@ export default function GmailSignals({ applications, onApplied }: Props) {
     setPending((prev) => prev.filter((s) => s.id !== signal.id));
   };
 
+  const resetHistory = async () => {
+    if (!confirm(
+      "This clears the log of emails already processed, so the next sync re-reads and re-applies every matched email from scratch (including ones it already handled, like a past misclassification). It only clears the sync log — your applications, stages, and notes aren't touched directly. Continue?"
+    )) return;
+
+    setResetting(true);
+    setSyncMessage("");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("gmail_status_signals").delete().eq("user_id", user.id);
+      }
+      setPending([]);
+      setSyncMessage("Sync history cleared. Click Sync Gmail to re-scan everything.");
+    } finally {
+      setResetting(false);
+    }
+  };
+
   if (!available) return null; // migration 002 not applied yet — fail quiet, not broken
 
   return (
@@ -98,10 +118,17 @@ export default function GmailSignals({ applications, onApplied }: Props) {
           <h2 className="font-semibold text-slate-900 text-sm">📧 Gmail Status Sync</h2>
           <p className="text-xs text-slate-400 mt-0.5">Claude reads matched emails and updates stages automatically.</p>
         </div>
-        <button onClick={sync} disabled={syncing}
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg border bg-white text-slate-700 border-slate-200 hover:border-slate-300 disabled:opacity-50 transition-colors shrink-0">
-          {syncing ? "Syncing…" : "Sync Gmail"}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={resetHistory} disabled={resetting || syncing}
+            title="Clear the log of already-processed emails so the next sync re-evaluates everything"
+            className="text-xs font-medium px-3 py-1.5 rounded-lg border bg-white text-slate-500 border-slate-200 hover:border-red-300 hover:text-red-600 disabled:opacity-50 transition-colors">
+            {resetting ? "Resetting…" : "Reset history"}
+          </button>
+          <button onClick={sync} disabled={syncing || resetting}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border bg-white text-slate-700 border-slate-200 hover:border-slate-300 disabled:opacity-50 transition-colors">
+            {syncing ? "Syncing…" : "Sync Gmail"}
+          </button>
+        </div>
       </div>
       {syncMessage && <p className="text-xs text-slate-600 mt-2">{syncMessage}</p>}
 
